@@ -69,7 +69,9 @@ export function CreateUserDialog({
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const resolvedRoles = allowedRoles.length > 0 ? allowedRoles : ["USER"];
+  const resolvedRoles = (allowedRoles.length > 0 ? allowedRoles : ["USER"]) as Array<
+    "ADMIN" | "MANAGER" | "USER"
+  >;
   const [role, setRole] = useState<"ADMIN" | "MANAGER" | "USER">(
     resolvedRoles.includes("USER") ? "USER" : resolvedRoles[0],
   );
