@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { updateUser, getDepartmentsList } from "@/actions/users";
 import { Pencil } from "lucide-react";
 
@@ -29,12 +30,14 @@ type User = {
   name: string;
   email: string;
   role: "ADMIN" | "MANAGER" | "USER";
-  departmentId: string | null;
+  departmentIds: string[];
   isActive: boolean;
 };
 
 const ERROR_CODE_MAP: Record<string, string> = {
   EMAIL_EXISTS: "emailExists",
+  MANAGER_NEEDS_DEPARTMENT: "managerNeedsDepartment",
+  USER_NEEDS_ONE_DEPARTMENT: "userNeedsOneDepartment",
   UNAUTHORIZED: "unauthorized",
   FORBIDDEN: "forbidden",
   DUPLICATE_ENTRY: "duplicateEntry",
@@ -58,7 +61,7 @@ export function EditUserDialog({ user }: { user: User }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [role, setRole] = useState(user.role);
-  const [departmentId, setDepartmentId] = useState(user.departmentId ?? "");
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>(user.departmentIds);
   const [isActive, setIsActive] = useState(user.isActive);
 
   useEffect(() => {
@@ -67,11 +70,29 @@ export function EditUserDialog({ user }: { user: User }) {
     }
   }, [open]);
 
+  function handleRoleChange(newRole: "ADMIN" | "MANAGER" | "USER") {
+    setRole(newRole);
+    // Reset department selection when role changes
+    setSelectedDepartmentIds([]);
+  }
+
+  function toggleDepartment(deptId: string) {
+    if (role === "USER") {
+      setSelectedDepartmentIds([deptId]);
+    } else {
+      setSelectedDepartmentIds((prev) =>
+        prev.includes(deptId)
+          ? prev.filter((id) => id !== deptId)
+          : [...prev, deptId]
+      );
+    }
+  }
+
   function resetForm() {
     setName(user.name);
     setEmail(user.email);
     setRole(user.role);
-    setDepartmentId(user.departmentId ?? "");
+    setSelectedDepartmentIds(user.departmentIds);
     setIsActive(user.isActive);
     setError("");
   }
@@ -86,7 +107,7 @@ export function EditUserDialog({ user }: { user: User }) {
         name,
         email,
         role,
-        departmentId: departmentId || undefined,
+        departmentIds: selectedDepartmentIds,
         isActive,
       });
 
@@ -149,7 +170,7 @@ export function EditUserDialog({ user }: { user: User }) {
           </div>
           <div className="space-y-2">
             <Label>{t("roles")}</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as "ADMIN" | "MANAGER" | "USER")}>
+            <Select value={role} onValueChange={(v) => handleRoleChange(v as "ADMIN" | "MANAGER" | "USER")}>
               <SelectTrigger>
                 <SelectValue placeholder="-" />
               </SelectTrigger>
@@ -160,21 +181,57 @@ export function EditUserDialog({ user }: { user: User }) {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>{tCommon("labels.department")}</Label>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger>
-                <SelectValue placeholder="-" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
+          {/* Department selection - conditional on role */}
+          {role !== "ADMIN" && (
+            <div className="space-y-2">
+              <Label>
+                {tCommon("labels.department")}
+                {role === "MANAGER" && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({t("multiSelect")})
+                  </span>
+                )}
+              </Label>
+              {role === "USER" ? (
+                <Select
+                  value={selectedDepartmentIds[0] ?? ""}
+                  onValueChange={(v) => setSelectedDepartmentIds([v])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="-" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-2">
+                  {departments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">-</p>
+                  ) : (
+                    departments.map((d) => (
+                      <label
+                        key={d.id}
+                        className="flex items-center gap-2 cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={selectedDepartmentIds.includes(d.id)}
+                          onCheckedChange={() => toggleDepartment(d.id)}
+                        />
+                        {d.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <Label htmlFor={`edit-active-${user.id}`}>
               {tCommon("labels.status")}

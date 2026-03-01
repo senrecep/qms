@@ -94,6 +94,13 @@ export const emailStrings: Record<
       info: string;
       button: string;
     };
+    documentDistributed: {
+      preview: string;
+      heading: string;
+      body: string;
+      info: string;
+      button: string;
+    };
     readReminder: {
       preview: string;
       heading: string;
@@ -138,6 +145,7 @@ export const emailStrings: Record<
       documentCancelled: "Belge İptal Edildi: {title}",
       documentRevised: "Belge Revize Edildi: {title}",
       readAssignment: "Okuma Görevi: {title}",
+      documentDistributed: "Belge Bilgilendirmesi: {title}",
       approvalReminder: "Hatırlatma: {title} onay bekliyor",
       readReminder: "Hatırlatma: {title} okuma onayı bekliyor",
       escalation: "Eskalasyon: {title}",
@@ -206,6 +214,13 @@ export const emailStrings: Record<
       info: "Belgeyi okuduktan sonra onay vermeniz gerekmektedir.",
       button: "Belgeyi Oku",
     },
+    documentDistributed: {
+      preview: "Belge Dağıtımı: {title}",
+      heading: "Belge Bilgilendirmesi",
+      body: "{publishedBy} tarafından yayınlanan {documentTitle} ({documentCode}) belgesi bilginize sunulmuştur.",
+      info: "Bu belge bilgilendirme amaçlı tarafınıza iletilmiştir.",
+      button: "Belgeyi Görüntüle",
+    },
     readReminder: {
       preview: "Hatırlatma: {title} okuma onayı bekliyor",
       heading: "Okuma Hatırlatması",
@@ -251,6 +266,7 @@ export const emailStrings: Record<
       documentCancelled: "Document Cancelled: {title}",
       documentRevised: "Document Revised: {title}",
       readAssignment: "Read Assignment: {title}",
+      documentDistributed: "Document Notification: {title}",
       approvalReminder: "Reminder: {title} pending approval",
       readReminder: "Reminder: {title} pending read confirmation",
       escalation: "Escalation: {title}",
@@ -319,6 +335,13 @@ export const emailStrings: Record<
       body: "You are required to read the document {documentTitle} ({documentCode}) published by {publishedBy}.",
       info: "You must confirm that you have read the document.",
       button: "Read Document",
+    },
+    documentDistributed: {
+      preview: "Document Distribution: {title}",
+      heading: "Document Notification",
+      body: "The document {documentTitle} ({documentCode}) published by {publishedBy} has been distributed to you for your information.",
+      info: "This document has been shared with you for informational purposes.",
+      button: "View Document",
     },
     readReminder: {
       preview: "Reminder: {title} pending read confirmation",

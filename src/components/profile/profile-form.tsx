@@ -20,7 +20,6 @@ type ProfileData = {
   name: string;
   email: string;
   role: string;
-  departmentId: string | null;
   departmentName: string | null;
   isActive: boolean;
   createdAt: Date;

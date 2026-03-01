@@ -12,6 +12,7 @@ import {
   approvals,
   users,
   departments,
+  departmentMembers,
 } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { saveFile } from "@/lib/storage";
@@ -406,7 +407,7 @@ export async function createDocument(formData: FormData) {
 
   // 3. Handle approval flow outside transaction (includes async notifications)
   if (actionType === "submit") {
-    await createApprovalFlow(revision.id, parsed.preparerId, parsed.approverId || null, docId, parsed.title, parsed.documentCode, session.user.name);
+    await createApprovalFlow(revision.id, parsed.preparerId, parsed.approverId || null, docId, parsed.title, parsed.documentCode, session.user.name, session.user.id);
   }
 
   revalidatePath("/documents");
@@ -429,54 +430,11 @@ async function createApprovalFlow(
   title: string,
   documentCode: string,
   uploaderName: string,
+  createdById: string,
 ) {
   if (!approverId) return;
 
-  if (preparerId !== approverId) {
-    // Two-step: PREPARER first, then APPROVER
-    await db.insert(approvals).values({
-      revisionId,
-      approverId: preparerId,
-      approvalType: "PREPARER",
-      status: "PENDING",
-    });
-
-    // Notify preparer
-    try {
-      const preparer = await db.query.users.findFirst({
-        where: eq(users.id, preparerId),
-        columns: { name: true, email: true },
-      });
-
-      if (preparer) {
-        await Promise.allSettled([
-          enqueueNotification({
-            userId: preparerId,
-            type: "APPROVAL_REQUEST",
-            titleKey: "newApprovalRequest",
-            messageParams: { docTitle: title, docCode: documentCode },
-            relatedDocumentId: documentId,
-            relatedRevisionId: revisionId,
-          }),
-          enqueueEmail({
-            to: preparer.email,
-            subjectKey: "approvalRequest",
-            subjectParams: { title },
-            templateName: "approval-request",
-            templateProps: {
-              approverName: preparer.name,
-              documentTitle: title,
-              documentCode,
-              uploaderName,
-              approvalUrl: `${env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
-            },
-          }),
-        ]);
-      }
-    } catch (error) {
-      console.error("[createApprovalFlow] Failed to notify preparer:", error);
-    }
-  } else {
+  if (preparerId === approverId) {
     // Single step: preparerId === approverId, skip preparer step
     await db.insert(approvals).values({
       revisionId,
@@ -520,6 +478,119 @@ async function createApprovalFlow(
     } catch (error) {
       console.error("[createApprovalFlow] Failed to notify approver:", error);
     }
+  } else if (createdById === preparerId) {
+    // Auto-skip preparer: uploader IS the preparer, skip to approver directly
+    await db.insert(approvals).values({
+      revisionId,
+      approverId: preparerId,
+      approvalType: "PREPARER",
+      status: "APPROVED",
+      comment: "Auto-approved: uploader is the preparer",
+      respondedAt: new Date(),
+    });
+
+    // Update revision status to PREPARER_APPROVED
+    await db
+      .update(documentRevisions)
+      .set({ status: "PREPARER_APPROVED" })
+      .where(eq(documentRevisions.id, revisionId));
+
+    // Create APPROVER approval
+    await db.insert(approvals).values({
+      revisionId,
+      approverId,
+      approvalType: "APPROVER",
+      status: "PENDING",
+    });
+
+    // Log auto-approval activity
+    await db.insert(activityLogs).values({
+      documentId,
+      revisionId,
+      userId: createdById,
+      action: "PREPARER_APPROVED",
+      details: { autoApproved: true, reason: "Uploader is the preparer" },
+    });
+
+    // Notify approver (not preparer since they uploaded it themselves)
+    try {
+      const approver = await db.query.users.findFirst({
+        where: eq(users.id, approverId),
+        columns: { name: true, email: true },
+      });
+
+      if (approver) {
+        await Promise.allSettled([
+          enqueueNotification({
+            userId: approverId,
+            type: "APPROVAL_REQUEST",
+            titleKey: "newApprovalRequest",
+            messageParams: { docTitle: title, docCode: documentCode },
+            relatedDocumentId: documentId,
+            relatedRevisionId: revisionId,
+          }),
+          enqueueEmail({
+            to: approver.email,
+            subjectKey: "approvalRequest",
+            subjectParams: { title },
+            templateName: "approval-request",
+            templateProps: {
+              approverName: approver.name,
+              documentTitle: title,
+              documentCode,
+              uploaderName,
+              approvalUrl: `${env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
+            },
+          }),
+        ]);
+      }
+    } catch (error) {
+      console.error("[createApprovalFlow] Failed to notify approver (auto-skip):", error);
+    }
+  } else {
+    // Two-step: PREPARER first, then APPROVER
+    await db.insert(approvals).values({
+      revisionId,
+      approverId: preparerId,
+      approvalType: "PREPARER",
+      status: "PENDING",
+    });
+
+    // Notify preparer
+    try {
+      const preparer = await db.query.users.findFirst({
+        where: eq(users.id, preparerId),
+        columns: { name: true, email: true },
+      });
+
+      if (preparer) {
+        await Promise.allSettled([
+          enqueueNotification({
+            userId: preparerId,
+            type: "APPROVAL_REQUEST",
+            titleKey: "newApprovalRequest",
+            messageParams: { docTitle: title, docCode: documentCode },
+            relatedDocumentId: documentId,
+            relatedRevisionId: revisionId,
+          }),
+          enqueueEmail({
+            to: preparer.email,
+            subjectKey: "approvalRequest",
+            subjectParams: { title },
+            templateName: "approval-request",
+            templateProps: {
+              approverName: preparer.name,
+              documentTitle: title,
+              documentCode,
+              uploaderName,
+              approvalUrl: `${env.NEXT_PUBLIC_APP_URL}/documents/${documentId}`,
+            },
+          }),
+        ]);
+      }
+    } catch (error) {
+      console.error("[createApprovalFlow] Failed to notify preparer:", error);
+    }
   }
 }
 
@@ -553,6 +624,7 @@ export async function submitForApproval(revisionId: string) {
     revision.title,
     revision.document.documentCode,
     session.user.name,
+    session.user.id,
   );
 
   // Log activity
@@ -601,32 +673,45 @@ export async function publishDocument(revisionId: string) {
     .set({ status: "PUBLISHED", publishedAt: now })
     .where(eq(documentRevisions.id, revisionId));
 
-  // Collect distribution users: departments + individual users
-  const allUserIds = new Set<string>();
+  // --- Department distribution: read confirmations for managers ---
+  const readConfirmationUserIds = new Set<string>();
 
   if (revision.distributionLists.length > 0) {
     const deptIds = revision.distributionLists.map((d) => d.departmentId);
-    const deptUsers = await db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(and(inArray(users.departmentId, deptIds), eq(users.isActive, true)));
-    // Only MANAGER role users get read confirmations
-    deptUsers.filter((u) => u.role === "MANAGER").forEach((u) => allUserIds.add(u.id));
+    const deptManagers = await db
+      .select({ id: users.id })
+      .from(departmentMembers)
+      .innerJoin(users, eq(departmentMembers.userId, users.id))
+      .where(
+        and(
+          inArray(departmentMembers.departmentId, deptIds),
+          eq(departmentMembers.role, "MANAGER"),
+          eq(users.isActive, true),
+        ),
+      );
+    deptManagers.forEach((u) => readConfirmationUserIds.add(u.id));
   }
+
+  // --- Individual user distribution: informational only (no read confirmation) ---
+  const infoOnlyUserIds = new Set<string>();
 
   if (revision.distributionUsers.length > 0) {
     const indivUserIds = revision.distributionUsers.map((u) => u.userId);
-    // Check which of these are MANAGERs
     const indivUsers = await db
-      .select({ id: users.id, role: users.role })
+      .select({ id: users.id })
       .from(users)
       .where(and(inArray(users.id, indivUserIds), eq(users.isActive, true)));
-    indivUsers.filter((u) => u.role === "MANAGER").forEach((u) => allUserIds.add(u.id));
+    indivUsers.forEach((u) => {
+      // Don't add to info-only if already getting a read confirmation from department
+      if (!readConfirmationUserIds.has(u.id)) {
+        infoOnlyUserIds.add(u.id);
+      }
+    });
   }
 
-  const targetUserIds = Array.from(allUserIds);
+  const targetUserIds = Array.from(readConfirmationUserIds);
 
-  // Create read confirmations only for MANAGER role users
+  // Create read confirmations ONLY for department managers
   if (targetUserIds.length > 0) {
     await db.insert(readConfirmations).values(
       targetUserIds.map((uid) => ({
@@ -650,9 +735,10 @@ export async function publishDocument(revisionId: string) {
 
   // Async notifications
   try {
-    if (targetUserIds.length > 0) {
-      const jobs: Promise<unknown>[] = [];
+    const jobs: Promise<unknown>[] = [];
 
+    // --- Read assignment notifications for department managers ---
+    if (targetUserIds.length > 0) {
       jobs.push(enqueueBulkNotifications({
         notifications: targetUserIds.map((uid) => ({
           userId: uid,
@@ -664,14 +750,14 @@ export async function publishDocument(revisionId: string) {
         })),
       }));
 
-      const usersForEmail = await db
+      const usersForReadEmail = await db
         .select({ id: users.id, name: users.name, email: users.email })
         .from(users)
         .where(inArray(users.id, targetUserIds));
 
-      if (usersForEmail.length > 0) {
+      if (usersForReadEmail.length > 0) {
         jobs.push(enqueueBulkEmail({
-          emails: usersForEmail.map((u) => ({
+          emails: usersForReadEmail.map((u) => ({
             to: u.email,
             subjectKey: "readAssignment",
             subjectParams: { title: revision.title },
@@ -686,7 +772,47 @@ export async function publishDocument(revisionId: string) {
           })),
         }));
       }
+    }
 
+    // --- Informational notifications for individual distribution users ---
+    const infoUserIdArray = Array.from(infoOnlyUserIds);
+    if (infoUserIdArray.length > 0) {
+      jobs.push(enqueueBulkNotifications({
+        notifications: infoUserIdArray.map((uid) => ({
+          userId: uid,
+          type: "DOCUMENT_DISTRIBUTED" as const,
+          titleKey: "documentDistributed",
+          messageParams: { docTitle: revision.title, docCode: revision.document.documentCode },
+          relatedDocumentId: revision.documentId,
+          relatedRevisionId: revisionId,
+        })),
+      }));
+
+      const usersForInfoEmail = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(inArray(users.id, infoUserIdArray));
+
+      if (usersForInfoEmail.length > 0) {
+        jobs.push(enqueueBulkEmail({
+          emails: usersForInfoEmail.map((u) => ({
+            to: u.email,
+            subjectKey: "documentDistributed",
+            subjectParams: { title: revision.title },
+            templateName: "document-distributed" as const,
+            templateProps: {
+              userName: u.name,
+              documentTitle: revision.title,
+              documentCode: revision.document.documentCode,
+              publishedBy: session.user.name,
+              documentUrl: `${env.NEXT_PUBLIC_APP_URL}/documents/${revision.documentId}`,
+            },
+          })),
+        }));
+      }
+    }
+
+    if (jobs.length > 0) {
       await Promise.allSettled(jobs);
     }
 
@@ -846,6 +972,7 @@ export async function reviseDocument(formData: FormData) {
         effectiveTitle,
         doc.documentCode,
         session.user.name,
+        session.user.id,
       );
     }
 
@@ -952,6 +1079,7 @@ export async function reviseDocument(formData: FormData) {
         effectiveTitle,
         doc.documentCode,
         session.user.name,
+        session.user.id,
       );
     }
 
@@ -1050,8 +1178,14 @@ export async function cancelDocument(documentId: string) {
         const deptIds = revision.distributionLists.map((d) => d.departmentId);
         const deptUsers = await db
           .select({ id: users.id })
-          .from(users)
-          .where(and(inArray(users.departmentId, deptIds), eq(users.isActive, true)));
+          .from(departmentMembers)
+          .innerJoin(users, eq(departmentMembers.userId, users.id))
+          .where(
+            and(
+              inArray(departmentMembers.departmentId, deptIds),
+              eq(users.isActive, true),
+            ),
+          );
         deptUsers.forEach((u) => allCancelUserIds.add(u.id));
       }
 
@@ -1138,34 +1272,84 @@ export async function getDepartments() {
 }
 
 export async function getApprovers() {
-  return db
+  // Get ADMIN + MANAGER users with their department names via junction table
+  const approverUsers = await db
     .select({
       id: users.id,
       name: users.name,
       role: users.role,
-      departmentName: departments.name,
     })
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(
       and(
         eq(users.isActive, true),
         or(eq(users.role, "MANAGER"), eq(users.role, "ADMIN")),
       ),
     );
+
+  // Get department names for each approver
+  const approverIds = approverUsers.map((u) => u.id);
+  const memberships = approverIds.length > 0
+    ? await db
+        .select({
+          userId: departmentMembers.userId,
+          departmentName: departments.name,
+        })
+        .from(departmentMembers)
+        .innerJoin(departments, eq(departmentMembers.departmentId, departments.id))
+        .where(inArray(departmentMembers.userId, approverIds))
+    : [];
+
+  // Build map: userId -> department names
+  const deptMap = new Map<string, string[]>();
+  for (const m of memberships) {
+    const existing = deptMap.get(m.userId) || [];
+    existing.push(m.departmentName);
+    deptMap.set(m.userId, existing);
+  }
+
+  return approverUsers.map((u) => ({
+    ...u,
+    departmentName: deptMap.get(u.id)?.join(", ") ?? null,
+  }));
 }
 
 export async function getAllActiveUsers() {
-  return db
+  const activeUsers = await db
     .select({
       id: users.id,
       name: users.name,
       email: users.email,
       role: users.role,
-      departmentId: users.departmentId,
-      departmentName: departments.name,
     })
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(eq(users.isActive, true));
+
+  // Get department memberships for all active users
+  const userIds = activeUsers.map((u) => u.id);
+  const memberships = userIds.length > 0
+    ? await db
+        .select({
+          userId: departmentMembers.userId,
+          departmentId: departmentMembers.departmentId,
+          departmentName: departments.name,
+        })
+        .from(departmentMembers)
+        .innerJoin(departments, eq(departmentMembers.departmentId, departments.id))
+        .where(inArray(departmentMembers.userId, userIds))
+    : [];
+
+  // Build map: userId -> departments
+  const deptMap = new Map<string, { departmentId: string; departmentName: string }[]>();
+  for (const m of memberships) {
+    const existing = deptMap.get(m.userId) || [];
+    existing.push({ departmentId: m.departmentId, departmentName: m.departmentName });
+    deptMap.set(m.userId, existing);
+  }
+
+  return activeUsers.map((u) => ({
+    ...u,
+    departmentId: deptMap.get(u.id)?.[0]?.departmentId ?? null,
+    departmentName: deptMap.get(u.id)?.map((d) => d.departmentName).join(", ") ?? null,
+  }));
 }

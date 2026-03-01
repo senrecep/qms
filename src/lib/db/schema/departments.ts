@@ -16,7 +16,6 @@ export const departments = pgTable(
     name: text("name").notNull().unique(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
-    managerId: text("manager_id"),
     isActive: boolean("is_active").notNull().default(true),
     isDeleted: boolean("is_deleted").notNull().default(false),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
@@ -30,7 +29,6 @@ export const departments = pgTable(
   },
   (table) => [
     index("departments_slug_idx").on(table.slug),
-    index("departments_manager_id_idx").on(table.managerId),
     index("departments_is_deleted_idx").on(table.isDeleted),
   ],
 );

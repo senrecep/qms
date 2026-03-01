@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { departments } from "./departments";
+import { departmentMembers } from "./department-members";
 import { documents } from "./documents";
 import { documentRevisions } from "./document-revisions";
 import { approvals } from "./approvals";
@@ -12,11 +13,8 @@ import { activityLogs } from "./activity-logs";
 import { systemSettings } from "./system-settings";
 
 // Users relations
-export const usersRelations = relations(users, ({ one, many }) => ({
-  department: one(departments, {
-    fields: [users.departmentId],
-    references: [departments.id],
-  }),
+export const usersRelations = relations(users, ({ many }) => ({
+  departmentMemberships: many(departmentMembers),
   preparedRevisions: many(documentRevisions, { relationName: "preparer" }),
   approvedRevisions: many(documentRevisions, { relationName: "approver" }),
   createdRevisions: many(documentRevisions, { relationName: "createdBy" }),
@@ -29,16 +27,27 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 // Departments relations
-export const departmentsRelations = relations(departments, ({ one, many }) => ({
-  manager: one(users, {
-    fields: [departments.managerId],
-    references: [users.id],
-  }),
-  members: many(users),
+export const departmentsRelations = relations(departments, ({ many }) => ({
+  departmentMemberships: many(departmentMembers),
   revisions: many(documentRevisions, { relationName: "department" }),
   preparerRevisions: many(documentRevisions, { relationName: "preparerDepartment" }),
   distributionLists: many(distributionLists),
 }));
+
+// Department Members relations (junction table)
+export const departmentMembersRelations = relations(
+  departmentMembers,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [departmentMembers.userId],
+      references: [users.id],
+    }),
+    department: one(departments, {
+      fields: [departmentMembers.departmentId],
+      references: [departments.id],
+    }),
+  }),
+);
 
 // Documents relations (simplified master table)
 export const documentsRelations = relations(documents, ({ one, many }) => ({

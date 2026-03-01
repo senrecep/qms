@@ -45,7 +45,6 @@ const uploadSchema = z.object({
   description: z.string().optional(),
   documentType: z.enum(["PROCEDURE", "INSTRUCTION", "FORM"]),
   departmentId: z.string().min(1, "Department is required"),
-  preparerDepartmentId: z.string().optional(),
   preparerId: z.string().min(1, "Preparer is required"),
   approverId: z.string().optional(),
   distributionDepartmentIds: z.array(z.string()).optional(),
@@ -93,7 +92,6 @@ export function UploadForm({ departments, approvers, allUsers, currentUserId }: 
       description: "",
       documentType: undefined,
       departmentId: "",
-      preparerDepartmentId: "",
       preparerId: currentUserId,
       approverId: "",
       distributionDepartmentIds: [],
@@ -137,9 +135,6 @@ export function UploadForm({ departments, approvers, allUsers, currentUserId }: 
       if (values.description) formData.set("description", values.description);
       formData.set("documentType", values.documentType);
       formData.set("departmentId", values.departmentId);
-      if (values.preparerDepartmentId) {
-        formData.set("preparerDepartmentId", values.preparerDepartmentId);
-      }
       formData.set("preparerId", values.preparerId);
       if (values.approverId) formData.set("approverId", values.approverId);
       if (values.distributionDepartmentIds?.length) {
@@ -334,31 +329,6 @@ export function UploadForm({ departments, approvers, allUsers, currentUserId }: 
                   <FormControl>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder={t("documents.form.selectDepartment")} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {departments.map((dept) => (
-                      <SelectItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="preparerDepartmentId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("documents.form.preparerDepartment")}</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t("documents.form.selectPreparerDepartment")} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>

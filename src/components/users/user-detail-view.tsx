@@ -27,7 +27,7 @@ type UserDetail = {
   role: "ADMIN" | "MANAGER" | "USER";
   isActive: boolean;
   createdAt: Date | string;
-  departmentName: string | null;
+  departments?: { departmentId: string; departmentName: string; memberRole: string }[];
   stats: {
     documentsCreated: number;
     approvalsApproved: number;
@@ -103,7 +103,11 @@ export function UserDetailView({ user }: { user: UserDetail }) {
             <p className="text-sm font-medium text-muted-foreground">
               {tCommon("labels.department")}
             </p>
-            <p className="text-sm">{user.departmentName ?? "-"}</p>
+            <p className="text-sm">
+              {user.departments && user.departments.length > 0
+                ? user.departments.map((d) => d.departmentName).join(", ")
+                : "-"}
+            </p>
           </div>
           <div>
             <p className="text-sm font-medium text-muted-foreground">

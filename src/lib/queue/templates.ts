@@ -9,6 +9,7 @@ import { DocumentApprovedEmail } from "@/lib/email/templates/document-approved";
 import { DocumentRevisedEmail } from "@/lib/email/templates/document-revised";
 import { DocumentCancelledEmail } from "@/lib/email/templates/document-cancelled";
 import { ReadAssignmentEmail } from "@/lib/email/templates/read-assignment";
+import { DocumentDistributedEmail } from "@/lib/email/templates/document-distributed";
 import { ReadReminderEmail } from "@/lib/email/templates/read-reminder";
 import { EscalationNoticeEmail } from "@/lib/email/templates/escalation-notice";
 import { WelcomeEmail } from "@/lib/email/templates/welcome";
@@ -30,6 +31,7 @@ const templateRegistry: Record<
   "document-revised": (props) => DocumentRevisedEmail(props),
   "document-cancelled": (props) => DocumentCancelledEmail(props),
   "read-assignment": (props) => ReadAssignmentEmail(props),
+  "document-distributed": (props) => DocumentDistributedEmail(props),
   "read-reminder": (props) => ReadReminderEmail(props),
   "escalation-notice": (props) => EscalationNoticeEmail(props),
   welcome: (props) => WelcomeEmail(props),

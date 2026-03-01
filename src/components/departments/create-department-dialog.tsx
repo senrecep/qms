@@ -13,14 +13,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { createDepartment } from "@/actions/departments";
 import { getDepartmentManagerCandidates } from "@/actions/departments-helpers";
 import { Plus } from "lucide-react";
@@ -48,7 +42,7 @@ export function CreateDepartmentDialog() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [managerId, setManagerId] = useState("");
+  const [selectedManagerIds, setSelectedManagerIds] = useState<string[]>([]);
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -67,11 +61,19 @@ export function CreateDepartmentDialog() {
     );
   }
 
+  function toggleManager(managerId: string) {
+    setSelectedManagerIds((prev) =>
+      prev.includes(managerId)
+        ? prev.filter((id) => id !== managerId)
+        : [...prev, managerId]
+    );
+  }
+
   function resetForm() {
     setName("");
     setSlug("");
     setDescription("");
-    setManagerId("");
+    setSelectedManagerIds([]);
     setIsActive(true);
     setError("");
   }
@@ -86,7 +88,7 @@ export function CreateDepartmentDialog() {
         name,
         slug,
         description: description || undefined,
-        managerId: managerId || undefined,
+        managerIds: selectedManagerIds.length > 0 ? selectedManagerIds : undefined,
         isActive,
       });
 
@@ -153,18 +155,24 @@ export function CreateDepartmentDialog() {
           </div>
           <div className="space-y-2">
             <Label>{t("form.manager")}</Label>
-            <Select value={managerId} onValueChange={setManagerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="-" />
-              </SelectTrigger>
-              <SelectContent>
-                {managers.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
+            <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-2">
+              {managers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">-</p>
+              ) : (
+                managers.map((m) => (
+                  <label
+                    key={m.id}
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <Checkbox
+                      checked={selectedManagerIds.includes(m.id)}
+                      onCheckedChange={() => toggleManager(m.id)}
+                    />
                     {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </label>
+                ))
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <Label>{tCommon("labels.status")}</Label>

@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users, departments } from "@/lib/db/schema";
+import { users, departments, departmentMembers } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -23,18 +23,32 @@ export async function getProfile() {
       name: users.name,
       email: users.email,
       role: users.role,
-      departmentId: users.departmentId,
-      departmentName: departments.name,
       isActive: users.isActive,
       createdAt: users.createdAt,
     })
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(eq(users.id, session.user.id))
     .limit(1);
 
   if (result.length === 0) throw new Error("User not found");
-  return result[0];
+
+  // Get departments via junction table
+  const userDepartments = await db
+    .select({
+      departmentId: departmentMembers.departmentId,
+      departmentName: departments.name,
+      memberRole: departmentMembers.role,
+    })
+    .from(departmentMembers)
+    .innerJoin(departments, eq(departmentMembers.departmentId, departments.id))
+    .where(eq(departmentMembers.userId, session.user.id));
+
+  return {
+    ...result[0],
+    departments: userDepartments,
+    // Backward-compatible fields for profile-form
+    departmentName: userDepartments.map((d) => d.departmentName).join(", ") || null,
+  };
 }
 
 export async function updateProfile(data: { name: string }): Promise<ActionResult> {

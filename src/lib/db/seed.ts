@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   users,
   departments,
+  departmentMembers,
   systemSettings,
   documents,
   documentRevisions,
@@ -84,7 +85,6 @@ async function createUser(
   email: string,
   password: string,
   role: "ADMIN" | "MANAGER" | "USER",
-  departmentId: string | null,
   _userId: string,
 ) {
   const existing = await db
@@ -97,7 +97,7 @@ async function createUser(
     console.log(`  User ${email} already exists, updating...`);
     await db
       .update(users)
-      .set({ role, departmentId, name })
+      .set({ role, name })
       .where(eq(users.email, email));
     return existing[0].id;
   }
@@ -107,7 +107,7 @@ async function createUser(
     body: { name, email, password },
   });
 
-  // Update the auto-generated user with our desired id, role, department
+  // Update the auto-generated user with our desired role
   const [created] = await db
     .select({ id: users.id })
     .from(users)
@@ -116,10 +116,9 @@ async function createUser(
 
   if (!created) throw new Error(`Failed to create user: ${email}`);
 
-  // Update role and department
   await db
     .update(users)
-    .set({ role, departmentId })
+    .set({ role })
     .where(eq(users.id, created.id));
 
   return created.id;
@@ -149,6 +148,7 @@ async function seed() {
   await db.delete(session);
   await db.delete(account);
   await db.delete(verification);
+  await db.delete(departmentMembers);
   await db.delete(users);
   await db.delete(departments);
   await db.delete(systemSettings);
@@ -194,7 +194,6 @@ async function seed() {
     ADMIN_EMAIL,
     ADMIN_PASSWORD,
     "ADMIN",
-    null,
     userIds.admin,
   );
   console.log(`  ✓ Admin: ${ADMIN_EMAIL}`);
@@ -204,7 +203,6 @@ async function seed() {
     `quality.manager@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "MANAGER",
-    deptIds.quality,
     userIds.qualityManager,
   );
   console.log(`  ✓ Quality Manager: quality.manager@${EMAIL_DOMAIN}`);
@@ -214,7 +212,6 @@ async function seed() {
     `production.manager@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "MANAGER",
-    deptIds.production,
     userIds.productionManager,
   );
   console.log(`  ✓ Production Manager: production.manager@${EMAIL_DOMAIN}`);
@@ -224,7 +221,6 @@ async function seed() {
     `hr.manager@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "MANAGER",
-    deptIds.hr,
     userIds.hrManager,
   );
   console.log(`  ✓ HR Manager: hr.manager@${EMAIL_DOMAIN}`);
@@ -234,7 +230,6 @@ async function seed() {
     `it.manager@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "MANAGER",
-    deptIds.it,
     userIds.itManager,
   );
   console.log(`  ✓ IT Manager: it.manager@${EMAIL_DOMAIN}`);
@@ -244,7 +239,6 @@ async function seed() {
     `quality.user@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.quality,
     userIds.qualityUser1,
   );
   console.log(`  ✓ Quality User: quality.user@${EMAIL_DOMAIN}`);
@@ -254,7 +248,6 @@ async function seed() {
     `quality.user2@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.quality,
     userIds.qualityUser2,
   );
   console.log(`  ✓ Quality User 2: quality.user2@${EMAIL_DOMAIN}`);
@@ -264,7 +257,6 @@ async function seed() {
     `production.user@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.production,
     userIds.productionUser1,
   );
   console.log(`  ✓ Production User: production.user@${EMAIL_DOMAIN}`);
@@ -274,7 +266,6 @@ async function seed() {
     `production.user2@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.production,
     userIds.productionUser2,
   );
   console.log(`  ✓ Production User 2: production.user2@${EMAIL_DOMAIN}`);
@@ -284,7 +275,6 @@ async function seed() {
     `hr.user@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.hr,
     userIds.hrUser1,
   );
   console.log(`  ✓ HR User: hr.user@${EMAIL_DOMAIN}`);
@@ -294,30 +284,27 @@ async function seed() {
     `it.user@${EMAIL_DOMAIN}`,
     DEFAULT_PASSWORD,
     "USER",
-    deptIds.it,
     userIds.itUser1,
   );
   console.log(`  ✓ IT User: it.user@${EMAIL_DOMAIN}`);
 
-  // Update department managers
-  await db
-    .update(departments)
-    .set({ managerId: u.qualityManager })
-    .where(eq(departments.id, deptIds.quality));
-  await db
-    .update(departments)
-    .set({ managerId: u.productionManager })
-    .where(eq(departments.id, deptIds.production));
-  await db
-    .update(departments)
-    .set({ managerId: u.hrManager })
-    .where(eq(departments.id, deptIds.hr));
-  await db
-    .update(departments)
-    .set({ managerId: u.itManager })
-    .where(eq(departments.id, deptIds.it));
-
-  console.log("  Department managers assigned.\n");
+  // ── Insert department_members ────────────────────────────────────
+  console.log("Creating department memberships...");
+  await db.insert(departmentMembers).values([
+    // Managers
+    { userId: u.qualityManager, departmentId: deptIds.quality, role: "MANAGER" },
+    { userId: u.productionManager, departmentId: deptIds.production, role: "MANAGER" },
+    { userId: u.hrManager, departmentId: deptIds.hr, role: "MANAGER" },
+    { userId: u.itManager, departmentId: deptIds.it, role: "MANAGER" },
+    // Members
+    { userId: u.qualityUser1, departmentId: deptIds.quality, role: "MEMBER" },
+    { userId: u.qualityUser2, departmentId: deptIds.quality, role: "MEMBER" },
+    { userId: u.productionUser1, departmentId: deptIds.production, role: "MEMBER" },
+    { userId: u.productionUser2, departmentId: deptIds.production, role: "MEMBER" },
+    { userId: u.hrUser1, departmentId: deptIds.hr, role: "MEMBER" },
+    { userId: u.itUser1, departmentId: deptIds.it, role: "MEMBER" },
+  ]);
+  console.log("  Department memberships created.\n");
 
   // ── 4. System Settings ──────────────────────────────────────────
   console.log("Creating system settings...");

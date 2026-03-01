@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/lib/db";
-import { users, departments } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { users, departments, departmentMembers } from "@/lib/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -41,11 +41,36 @@ export default async function UsersPage() {
       email: users.email,
       role: users.role,
       isActive: users.isActive,
-      departmentId: users.departmentId,
-      departmentName: departments.name,
     })
-    .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id));
+    .from(users);
+
+  // Get department memberships for all users
+  const userIds = userList.map((u) => u.id);
+  const memberships = userIds.length > 0
+    ? await db
+        .select({
+          userId: departmentMembers.userId,
+          departmentId: departmentMembers.departmentId,
+          departmentName: departments.name,
+        })
+        .from(departmentMembers)
+        .innerJoin(departments, eq(departmentMembers.departmentId, departments.id))
+        .where(inArray(departmentMembers.userId, userIds))
+    : [];
+
+  // Build map: userId -> departments
+  const deptMap = new Map<string, { departmentId: string; departmentName: string }[]>();
+  for (const m of memberships) {
+    const existing = deptMap.get(m.userId) || [];
+    existing.push({ departmentId: m.departmentId, departmentName: m.departmentName });
+    deptMap.set(m.userId, existing);
+  }
+
+  const enrichedUsers = userList.map((u) => ({
+    ...u,
+    departmentIds: deptMap.get(u.id)?.map((d) => d.departmentId) ?? [],
+    departmentNames: deptMap.get(u.id)?.map((d) => d.departmentName).join(", ") ?? "-",
+  }));
 
   return (
     <div className="space-y-6">
@@ -71,7 +96,7 @@ export default async function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {userList.map((u) => (
+              {enrichedUsers.map((u) => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     <Link
@@ -85,7 +110,7 @@ export default async function UsersPage() {
                   <TableCell>
                     <Badge variant="outline">{u.role}</Badge>
                   </TableCell>
-                  <TableCell>{u.departmentName ?? "-"}</TableCell>
+                  <TableCell>{u.departmentNames}</TableCell>
                   <TableCell>
                     <Badge variant={u.isActive ? "default" : "secondary"}>
                       {u.isActive
@@ -102,7 +127,7 @@ export default async function UsersPage() {
                           name: u.name,
                           email: u.email,
                           role: u.role as "ADMIN" | "MANAGER" | "USER",
-                          departmentId: u.departmentId,
+                          departmentIds: u.departmentIds,
                           isActive: u.isActive,
                         }}
                       />

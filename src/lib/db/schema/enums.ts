@@ -23,6 +23,11 @@ export const approvalStatusEnum = pgEnum("approval_status", [
   "REJECTED",
 ]);
 
+export const departmentMemberRoleEnum = pgEnum("department_member_role", [
+  "MEMBER",
+  "MANAGER",
+]);
+
 export const documentTypeEnum = pgEnum("document_type", [
   "PROCEDURE",
   "INSTRUCTION",

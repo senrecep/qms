@@ -10,6 +10,7 @@ export type EmailTemplateName =
   | "document-revised"
   | "document-cancelled"
   | "read-assignment"
+  | "document-distributed"
   | "read-reminder"
   | "escalation-notice"
   | "welcome";

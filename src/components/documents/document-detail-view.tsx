@@ -387,7 +387,7 @@ export function DocumentDetailView({ document: doc }: Props) {
                             <AccordionContent>
                               <div className="space-y-4 pb-4">
                                 {/* People info */}
-                                <div className="grid gap-3 sm:grid-cols-3">
+                                <div className="grid gap-3 sm:grid-cols-2">
                                   <div className="flex items-center gap-2 text-sm">
                                     <User className="text-muted-foreground size-4" />
                                     <span className="text-muted-foreground">{t("documents.detail.preparer")}:</span>
@@ -397,11 +397,6 @@ export function DocumentDetailView({ document: doc }: Props) {
                                     <User className="text-muted-foreground size-4" />
                                     <span className="text-muted-foreground">{t("documents.detail.approver")}:</span>
                                     <span className="font-medium">{rev.approver?.name ?? "-"}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-sm">
-                                    <User className="text-muted-foreground size-4" />
-                                    <span className="text-muted-foreground">{t("common.labels.uploadedBy")}:</span>
-                                    <span className="font-medium">{rev.createdBy?.name ?? "-"}</span>
                                   </div>
                                 </div>
 

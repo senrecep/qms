@@ -17,6 +17,7 @@ import { publish, CHANNELS } from "@/lib/redis/pubsub";
 import { revalidatePath } from "next/cache";
 import { env } from "@/lib/env";
 import { classifyError, type ActionResult } from "@/lib/errors";
+import { publishDocument } from "@/actions/documents";
 
 // --- Queries ---
 
@@ -313,6 +314,13 @@ export async function approveDocument(approvalId: string, comment?: string): Pro
         await Promise.allSettled(jobs);
       } catch (error) {
         console.error("[approveDocument:APPROVER] Failed to enqueue notifications:", error);
+      }
+
+      // Auto-publish after final approval
+      try {
+        await publishDocument(revision.id);
+      } catch (autoPublishError) {
+        console.error("[approveDocument:APPROVER] Auto-publish failed, document remains in APPROVED state:", autoPublishError);
       }
     }
 

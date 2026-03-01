@@ -3,10 +3,10 @@ import {
   approvals,
   users,
   documentRevisions,
-  departments,
+  departmentMembers,
   systemSettings,
 } from "@/lib/db/schema";
-import { eq, and, lt, isNull } from "drizzle-orm";
+import { eq, and, lt, isNull, inArray, ne } from "drizzle-orm";
 import { enqueueEmail, enqueueNotification } from "@/lib/queue";
 import { env } from "@/lib/env";
 
@@ -60,17 +60,30 @@ export async function runApprovalEscalations() {
         // Find escalation target: department manager or admin
         let escalationTarget = null;
 
-        // First try to find department manager
-        if (approver.departmentId) {
-          const dept = await db.query.departments.findFirst({
-            where: eq(departments.id, approver.departmentId),
-            with: {
-              manager: true,
-            },
-          });
+        // First try to find a department manager from approver's departments
+        const approverMemberships = await db
+          .select({ departmentId: departmentMembers.departmentId })
+          .from(departmentMembers)
+          .where(eq(departmentMembers.userId, approver.id));
 
-          if (dept?.manager && dept.manager.id !== approver.id) {
-            escalationTarget = dept.manager;
+        if (approverMemberships.length > 0) {
+          const deptIds = approverMemberships.map((m) => m.departmentId);
+          const managerResult = await db
+            .select({ user: users })
+            .from(departmentMembers)
+            .innerJoin(users, eq(departmentMembers.userId, users.id))
+            .where(
+              and(
+                inArray(departmentMembers.departmentId, deptIds),
+                eq(departmentMembers.role, "MANAGER"),
+                eq(users.isActive, true),
+                ne(users.id, approver.id),
+              ),
+            )
+            .limit(1);
+
+          if (managerResult.length > 0) {
+            escalationTarget = managerResult[0].user;
           }
         }
 

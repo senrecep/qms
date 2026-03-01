@@ -14,6 +14,7 @@ export const notificationTypeEnum = [
   "APPROVAL_REQUEST",
   "DOCUMENT_REJECTED",
   "READ_ASSIGNMENT",
+  "DOCUMENT_DISTRIBUTED",
   "REMINDER",
   "ESCALATION",
 ] as const;
