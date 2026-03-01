@@ -845,7 +845,6 @@ async function seed() {
       respondedAt: daysAgo(6),
       createdAt: daysAgo(7),
     },
-    { id: nanoid(), revisionId: revIds.doc8Rev0, approverId: u.admin, approvalType: "APPROVER", status: "PENDING", createdAt: daysAgo(7) },
   ]);
 
   await db.insert(activityLogs).values([
