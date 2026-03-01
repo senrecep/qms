@@ -34,10 +34,10 @@ const mainNavItems = [
   { key: "approvals", href: "/approvals", icon: CheckSquare },
   { key: "readTasks", href: "/read-tasks", icon: BookCheck },
   { key: "guide", href: "/guide", icon: BookOpenText },
+  { key: "departments", href: "/departments", icon: Building2 },
 ];
 
 const adminNavItems = [
-  { key: "departments", href: "/departments", icon: Building2 },
   { key: "users", href: "/users", icon: Users },
   { key: "settings", href: "/settings", icon: Settings },
 ];

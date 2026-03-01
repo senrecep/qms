@@ -3,6 +3,8 @@ export * from "./users";
 export { users as user } from "./users";
 export * from "./auth-tables";
 export * from "./departments";
+export * from "./department-slug-redirects";
+export * from "./department-members";
 export * from "./documents";
 export * from "./document-revisions";
 export * from "./approvals";

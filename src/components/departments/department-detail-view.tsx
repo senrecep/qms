@@ -19,6 +19,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { EditDepartmentDialog } from "@/components/departments/edit-department-dialog";
+import { CreateUserDialog } from "@/components/users/create-user-dialog";
+import { ResetPasswordButton } from "@/components/users/reset-password-button";
+
+type Manager = {
+  id: string;
+  name: string;
+  email: string;
+};
 
 type Member = {
   id: string;
@@ -26,6 +35,7 @@ type Member = {
   email: string;
   role: "USER" | "MANAGER" | "ADMIN";
   isActive: boolean;
+  memberRole: "MEMBER" | "MANAGER";
 };
 
 type Department = {
@@ -34,8 +44,7 @@ type Department = {
   slug: string;
   description: string | null;
   isActive: boolean;
-  managerId: string | null;
-  managerName: string | null;
+  managers: Manager[];
   members: Member[];
 };
 
@@ -47,8 +56,18 @@ const ROLE_TRANSLATION_KEY = {
 
 export function DepartmentDetailView({
   department,
+  canEditDepartment = false,
+  editMode = "admin",
+  canCreateUser = false,
+  canResetPasswords = false,
+  showReadOnlyNotice = false,
 }: {
   department: Department;
+  canEditDepartment?: boolean;
+  editMode?: "admin" | "manager";
+  canCreateUser?: boolean;
+  canResetPasswords?: boolean;
+  showReadOnlyNotice?: boolean;
 }) {
   const t = useTranslations("departments.detail");
   const tCommon = useTranslations("common");
@@ -64,9 +83,30 @@ export function DepartmentDetailView({
         </Link>
       </Button>
 
+      {showReadOnlyNotice && (
+        <div className="rounded-md border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          {tCommon("labels.readOnly") ?? "Read-only"}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>{department.name}</CardTitle>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle>{department.name}</CardTitle>
+            {canEditDepartment && (
+              <EditDepartmentDialog
+                dept={{
+                  id: department.id,
+                  name: department.name,
+                  slug: department.slug,
+                  description: department.description,
+                  isActive: department.isActive,
+                  managerIds: department.managers.map((m) => m.id),
+                }}
+                mode={editMode}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -77,7 +117,24 @@ export function DepartmentDetailView({
             <p className="text-sm font-medium text-muted-foreground">
               {tForm("manager")}
             </p>
-            <p className="text-sm">{department.managerName ?? "-"}</p>
+            {department.managers.length === 0 ? (
+              <p className="text-sm mt-1">-</p>
+            ) : (
+              <div className="mt-2 space-y-2">
+                {department.managers.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between rounded-md border px-3 py-2"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{m.name}</p>
+                      <p className="text-xs text-muted-foreground">{m.email}</p>
+                    </div>
+                    <Badge variant="secondary">{tUsers("roleManager")}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-muted-foreground">
@@ -100,11 +157,21 @@ export function DepartmentDetailView({
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t("members")}</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              {t("memberCount", { count: department.members.length })}
-            </span>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle>{t("members")}</CardTitle>
+              <span className="text-sm text-muted-foreground">
+                {t("memberCount", { count: department.members.length })}
+              </span>
+            </div>
+            {canCreateUser && (
+              <CreateUserDialog
+                presetDepartmentId={department.id}
+                presetDepartmentName={department.name}
+                allowedRoles={["USER", "MANAGER"]}
+                triggerLabel={tUsers("addUser")}
+              />
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -118,6 +185,9 @@ export function DepartmentDetailView({
                   <TableHead>{tCommon("labels.email")}</TableHead>
                   <TableHead>{tUsers("roles")}</TableHead>
                   <TableHead>{tCommon("labels.status")}</TableHead>
+                  {canResetPasswords && (
+                    <TableHead className="w-12">{tCommon("labels.actions")}</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -139,6 +209,11 @@ export function DepartmentDetailView({
                           : tCommon("status.inactive")}
                       </Badge>
                     </TableCell>
+                    {canResetPasswords && (
+                      <TableCell>
+                        <ResetPasswordButton userId={member.id} />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

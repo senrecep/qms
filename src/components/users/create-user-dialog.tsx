@@ -20,12 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { createUser, getDepartmentsList } from "@/actions/users";
 import { Plus } from "lucide-react";
 
 const ERROR_CODE_MAP: Record<string, string> = {
   EMAIL_EXISTS: "emailExists",
   USER_CREATE_FAILED: "userCreateFailed",
+  MANAGER_NEEDS_DEPARTMENT: "managerNeedsDepartment",
+  USER_NEEDS_ONE_DEPARTMENT: "userNeedsOneDepartment",
   UNAUTHORIZED: "unauthorized",
   FORBIDDEN: "forbidden",
   DUPLICATE_ENTRY: "duplicateEntry",
@@ -33,7 +36,25 @@ const ERROR_CODE_MAP: Record<string, string> = {
   UNEXPECTED_ERROR: "unexpectedError",
 };
 
-export function CreateUserDialog() {
+const ROLE_LABEL_MAP: Record<"ADMIN" | "MANAGER" | "USER", "roleAdmin" | "roleManager" | "roleUser"> = {
+  ADMIN: "roleAdmin",
+  MANAGER: "roleManager",
+  USER: "roleUser",
+};
+
+type CreateUserDialogProps = {
+  presetDepartmentId?: string;
+  presetDepartmentName?: string;
+  allowedRoles?: Array<"ADMIN" | "MANAGER" | "USER">;
+  triggerLabel?: string;
+};
+
+export function CreateUserDialog({
+  presetDepartmentId,
+  presetDepartmentName,
+  allowedRoles = ["USER", "MANAGER", "ADMIN"],
+  triggerLabel,
+}: CreateUserDialogProps) {
   const t = useTranslations("settings.users");
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
@@ -48,20 +69,47 @@ export function CreateUserDialog() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "MANAGER" | "USER">("USER");
-  const [departmentId, setDepartmentId] = useState("");
+  const resolvedRoles = allowedRoles.length > 0 ? allowedRoles : ["USER"];
+  const [role, setRole] = useState<"ADMIN" | "MANAGER" | "USER">(
+    resolvedRoles.includes("USER") ? "USER" : resolvedRoles[0],
+  );
+  const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>(
+    presetDepartmentId ? [presetDepartmentId] : [],
+  );
 
   useEffect(() => {
     if (open) {
-      getDepartmentsList().then(setDepartments);
+      if (!presetDepartmentId) {
+        getDepartmentsList().then(setDepartments);
+      }
     }
-  }, [open]);
+  }, [open, presetDepartmentId]);
+
+  function handleRoleChange(newRole: "ADMIN" | "MANAGER" | "USER") {
+    setRole(newRole);
+    // Reset department selection when role changes
+    setSelectedDepartmentIds(presetDepartmentId ? [presetDepartmentId] : []);
+  }
+
+  function toggleDepartment(deptId: string) {
+    if (role === "USER") {
+      // USER can only have one department - replace selection
+      setSelectedDepartmentIds([deptId]);
+    } else {
+      // MANAGER can have multiple
+      setSelectedDepartmentIds((prev) =>
+        prev.includes(deptId)
+          ? prev.filter((id) => id !== deptId)
+          : [...prev, deptId]
+      );
+    }
+  }
 
   function resetForm() {
     setName("");
     setEmail("");
-    setRole("USER");
-    setDepartmentId("");
+    setRole(resolvedRoles.includes("USER") ? "USER" : resolvedRoles[0]);
+    setSelectedDepartmentIds(presetDepartmentId ? [presetDepartmentId] : []);
     setError("");
   }
 
@@ -71,11 +119,15 @@ export function CreateUserDialog() {
     setLoading(true);
 
     try {
+      const finalDepartmentIds = presetDepartmentId
+        ? [presetDepartmentId]
+        : selectedDepartmentIds;
+
       const result = await createUser({
         name,
         email,
         role,
-        departmentId: departmentId || undefined,
+        departmentIds: finalDepartmentIds.length > 0 ? finalDepartmentIds : undefined,
       });
 
       if (!result.success) {
@@ -104,7 +156,7 @@ export function CreateUserDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
-          {t("addUser")}
+          {triggerLabel ?? t("addUser")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -131,40 +183,98 @@ export function CreateUserDialog() {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Kullaniciya parola belirleme linki email ile gonderilecektir.
+              {t("passwordResetNote")}
             </p>
           </div>
-          <div className="space-y-2">
-            <Label>{t("roles")}</Label>
-            <Select
-              value={role}
-              onValueChange={(v) => setRole(v as "ADMIN" | "MANAGER" | "USER")}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="USER">{t("roleUser")}</SelectItem>
-                <SelectItem value="MANAGER">{t("roleManager")}</SelectItem>
-                <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>{tCommon("labels.department")}</Label>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger>
-                <SelectValue placeholder="-" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {resolvedRoles.length > 1 ? (
+            <div className="space-y-2">
+              <Label>{t("roles")}</Label>
+              <Select
+                value={role}
+                onValueChange={(v) => handleRoleChange(v as "ADMIN" | "MANAGER" | "USER")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {resolvedRoles.includes("USER") && (
+                    <SelectItem value="USER">{t("roleUser")}</SelectItem>
+                  )}
+                  {resolvedRoles.includes("MANAGER") && (
+                    <SelectItem value="MANAGER">{t("roleManager")}</SelectItem>
+                  )}
+                  {resolvedRoles.includes("ADMIN") && (
+                    <SelectItem value="ADMIN">{t("roleAdmin")}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>{t("roles")}</Label>
+              <div className="text-sm text-muted-foreground">
+                {t(ROLE_LABEL_MAP[resolvedRoles[0]])}
+              </div>
+            </div>
+          )}
+
+          {/* Department selection - conditional on role */}
+          {role !== "ADMIN" && !presetDepartmentId && (
+            <div className="space-y-2">
+              <Label>
+                {tCommon("labels.department")}
+                {role === "MANAGER" && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({t("multiSelect")})
+                  </span>
+                )}
+              </Label>
+              {role === "USER" ? (
+                <Select
+                  value={selectedDepartmentIds[0] ?? ""}
+                  onValueChange={(v) => setSelectedDepartmentIds([v])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="-" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="max-h-40 overflow-y-auto rounded-md border p-2 space-y-2">
+                  {departments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">-</p>
+                  ) : (
+                    departments.map((d) => (
+                      <label
+                        key={d.id}
+                        className="flex items-center gap-2 cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={selectedDepartmentIds.includes(d.id)}
+                          onCheckedChange={() => toggleDepartment(d.id)}
+                        />
+                        {d.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {presetDepartmentId && (
+            <div className="space-y-2">
+              <Label>{tCommon("labels.department")}</Label>
+              <div className="text-sm text-muted-foreground">
+                {presetDepartmentName ?? "-"}
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

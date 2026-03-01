@@ -46,7 +46,8 @@
       "readStatus": "Read Status",
       "notRead": "Not read",
       "revisionNo": "Rev No",
-      "publishedBy": "Published By"
+      "publishedBy": "Published By",
+      "readOnly": "Read-only"
     },
     "pagination": {
       "previous": "Previous",
@@ -251,7 +252,8 @@
       "readAssignment": "Read Assignment",
       "reminder": "Reminder",
       "escalation": "Escalation",
-      "documentPublished": "Document Published"
+      "documentPublished": "Document Published",
+      "documentDistributed": "Document Distributed"
     },
     "titles": {
       "newApprovalRequest": "New Approval Request",
@@ -272,7 +274,8 @@
       "approvalReminder": "Approval Reminder",
       "escalationNotice": "Escalation Notice",
       "approvalEscalated": "Approval Escalated",
-      "documentEscalated": "Document Escalated"
+      "documentEscalated": "Document Escalated",
+      "documentDistributed": "Document Distributed"
     },
     "messages": {
       "newApprovalRequest": "Document \"{docTitle}\" ({docCode}) requires your approval.",
@@ -288,7 +291,8 @@
       "approvalReminder": "Document \"{docTitle}\" ({docCode}) has been awaiting your approval for {days} days.",
       "escalationNotice": "Document \"{docTitle}\" ({docCode}) has not been approved by {approverName} for {days} days.",
       "approvalEscalated": "Your pending approval for \"{docTitle}\" ({docCode}) has been escalated after {days} days.",
-      "documentEscalated": "Your document \"{docTitle}\" ({docCode}) approval has been escalated to {escalationTarget}."
+      "documentEscalated": "Your document \"{docTitle}\" ({docCode}) approval has been escalated to {escalationTarget}.",
+      "documentDistributed": "Document \"{docTitle}\" ({docCode}) has been published and distributed to you for your information."
     }
   },
   "departments": {
@@ -352,6 +356,8 @@
       "emailExists": "A user with this email already exists.",
       "passwordResetSent": "Password reset link has been sent.",
       "sendResetLink": "Send password reset link",
+      "passwordResetNote": "A password setup link will be sent to the user via email.",
+      "multiSelect": "multiple selection",
       "detail": {
         "title": "User Details",
         "back": "Back to Users",
@@ -416,6 +422,8 @@
     "emailExists": "A user with this email already exists.",
     "userNotFound": "User not found.",
     "userCreateFailed": "Failed to create user.",
+    "managerNeedsDepartment": "Managers must be assigned to at least one department.",
+    "userNeedsOneDepartment": "Users must be assigned to exactly one department.",
     "passwordResetFailed": "Failed to send password reset email.",
     "nameRequired": "Name is required.",
     "settingSaveFailed": "Failed to save settings.",

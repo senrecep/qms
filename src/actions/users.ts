@@ -5,13 +5,14 @@ import { db } from "@/lib/db";
 import {
   users,
   departments,
+  departmentMembers,
   documentRevisions,
   approvals,
   readConfirmations,
   activityLogs,
   documents,
 } from "@/lib/db/schema";
-import { eq, and, ne, count, desc, sql } from "drizzle-orm";
+import { eq, and, ne, count, desc, sql, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { env } from "@/lib/env";
@@ -25,14 +26,65 @@ async function requireAdmin() {
   return session;
 }
 
+async function getSessionOrThrow() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) throw new Error("Unauthorized");
+  return session;
+}
+
+async function getManagerDepartmentIds(userId: string) {
+  const rows = await db
+    .select({ departmentId: departmentMembers.departmentId })
+    .from(departmentMembers)
+    .where(
+      and(
+        eq(departmentMembers.userId, userId),
+        eq(departmentMembers.role, "MANAGER"),
+      ),
+    );
+  return rows.map((r) => r.departmentId);
+}
+
 export async function createUser(formData: {
   name: string;
   email: string;
   role: "ADMIN" | "MANAGER" | "USER";
-  departmentId?: string;
+  departmentIds?: string[];
 }): Promise<ActionResult> {
   try {
-    await requireAdmin();
+    const session = await getSessionOrThrow();
+    const role = (session.user as { role?: string }).role;
+
+    if (role !== "ADMIN" && role !== "MANAGER") throw new Error("Forbidden");
+
+    if (role === "MANAGER") {
+      const managerDeptIds = await getManagerDepartmentIds(session.user.id);
+      if (managerDeptIds.length === 0) throw new Error("Forbidden");
+
+      if (formData.role === "ADMIN") throw new Error("Forbidden");
+
+      if (!formData.departmentIds || formData.departmentIds.length === 0) {
+        return { success: false, error: "Managers must be assigned to at least one department", errorCode: "MANAGER_NEEDS_DEPARTMENT" };
+      }
+
+      const isSubset = formData.departmentIds.every((deptId) => managerDeptIds.includes(deptId));
+      if (!isSubset) throw new Error("Forbidden");
+
+      if (formData.role === "USER" && formData.departmentIds.length !== 1) {
+        return { success: false, error: "Users must be assigned to exactly one department", errorCode: "USER_NEEDS_ONE_DEPARTMENT" };
+      }
+    }
+
+    // Validate department rules
+    if (formData.role === "MANAGER") {
+      if (!formData.departmentIds || formData.departmentIds.length === 0) {
+        return { success: false, error: "Managers must be assigned to at least one department", errorCode: "MANAGER_NEEDS_DEPARTMENT" };
+      }
+    } else if (formData.role === "USER") {
+      if (!formData.departmentIds || formData.departmentIds.length !== 1) {
+        return { success: false, error: "Users must be assigned to exactly one department", errorCode: "USER_NEEDS_ONE_DEPARTMENT" };
+      }
+    }
 
     // Check if email already exists
     const existing = await db
@@ -61,14 +113,23 @@ export async function createUser(formData: {
       return { success: false, error: "Failed to create user", errorCode: "USER_CREATE_FAILED" };
     }
 
-    // Update role + department (input: false fields)
+    // Update role (input: false field)
     await db
       .update(users)
-      .set({
-        role: formData.role,
-        departmentId: formData.departmentId || null,
-      })
+      .set({ role: formData.role })
       .where(eq(users.id, result.user.id));
+
+    // Insert department memberships
+    if (formData.departmentIds && formData.departmentIds.length > 0) {
+      const memberRole = formData.role === "MANAGER" ? "MANAGER" : "MEMBER";
+      await db.insert(departmentMembers).values(
+        formData.departmentIds.map((deptId) => ({
+          userId: result.user.id,
+          departmentId: deptId,
+          role: memberRole as "MEMBER" | "MANAGER",
+        })),
+      );
+    }
 
     // Trigger password reset email via Better Auth endpoint
     await fetch(`${env.BETTER_AUTH_URL}/api/auth/request-password-reset`, {
@@ -81,6 +142,7 @@ export async function createUser(formData: {
     });
 
     revalidatePath("/users");
+    revalidatePath("/departments");
     return { success: true };
   } catch (error) {
     return classifyError(error);
@@ -89,7 +151,28 @@ export async function createUser(formData: {
 
 export async function sendPasswordReset(userId: string): Promise<ActionResult> {
   try {
-    await requireAdmin();
+    const session = await getSessionOrThrow();
+    const role = (session.user as { role?: string }).role;
+
+    if (role !== "ADMIN" && role !== "MANAGER") throw new Error("Forbidden");
+
+    if (role === "MANAGER") {
+      const managerDeptIds = await getManagerDepartmentIds(session.user.id);
+      if (managerDeptIds.length === 0) throw new Error("Forbidden");
+
+      const allowed = await db
+        .select({ departmentId: departmentMembers.departmentId })
+        .from(departmentMembers)
+        .where(
+          and(
+            eq(departmentMembers.userId, userId),
+            inArray(departmentMembers.departmentId, managerDeptIds),
+          ),
+        )
+        .limit(1);
+
+      if (allowed.length === 0) throw new Error("Forbidden");
+    }
 
     const user = await db
       .select({ email: users.email })
@@ -145,12 +228,23 @@ export async function updateUser(
     name: string;
     email: string;
     role: "ADMIN" | "MANAGER" | "USER";
-    departmentId?: string;
+    departmentIds?: string[];
     isActive: boolean;
   }
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
+
+    // Validate department rules
+    if (formData.role === "MANAGER") {
+      if (!formData.departmentIds || formData.departmentIds.length === 0) {
+        return { success: false, error: "Managers must be assigned to at least one department", errorCode: "MANAGER_NEEDS_DEPARTMENT" };
+      }
+    } else if (formData.role === "USER") {
+      if (!formData.departmentIds || formData.departmentIds.length !== 1) {
+        return { success: false, error: "Users must be assigned to exactly one department", errorCode: "USER_NEEDS_ONE_DEPARTMENT" };
+      }
+    }
 
     // Check email uniqueness (exclude current user)
     const existing = await db
@@ -169,10 +263,27 @@ export async function updateUser(
         name: formData.name,
         email: formData.email,
         role: formData.role,
-        departmentId: formData.departmentId || null,
         isActive: formData.isActive,
       })
       .where(eq(users.id, userId));
+
+    // Replace department memberships: delete old, insert new
+    if (formData.departmentIds !== undefined) {
+      await db
+        .delete(departmentMembers)
+        .where(eq(departmentMembers.userId, userId));
+
+      if (formData.departmentIds.length > 0) {
+        const memberRole = formData.role === "MANAGER" ? "MANAGER" : "MEMBER";
+        await db.insert(departmentMembers).values(
+          formData.departmentIds.map((deptId) => ({
+            userId,
+            departmentId: deptId,
+            role: memberRole as "MEMBER" | "MANAGER",
+          })),
+        );
+      }
+    }
 
     revalidatePath("/users");
     return { success: true };
@@ -190,14 +301,23 @@ export async function getUserDetail(userId: string) {
       role: users.role,
       isActive: users.isActive,
       createdAt: users.createdAt,
-      departmentName: departments.name,
     })
     .from(users)
-    .leftJoin(departments, eq(users.departmentId, departments.id))
     .where(eq(users.id, userId))
     .limit(1);
 
   if (userInfo.length === 0) return null;
+
+  // Get departments via department_members
+  const userDepartments = await db
+    .select({
+      departmentId: departmentMembers.departmentId,
+      departmentName: departments.name,
+      memberRole: departmentMembers.role,
+    })
+    .from(departmentMembers)
+    .innerJoin(departments, eq(departmentMembers.departmentId, departments.id))
+    .where(eq(departmentMembers.userId, userId));
 
   // Optimized: 3 queries instead of 6 using conditional aggregation
   const [
@@ -241,6 +361,7 @@ export async function getUserDetail(userId: string) {
 
   return {
     ...userInfo[0],
+    departments: userDepartments,
     stats: {
       documentsCreated: Number(documentsCreatedResult[0].count),
       approvalsApproved: Number(approvalStatsResult[0].approved),
@@ -251,4 +372,15 @@ export async function getUserDetail(userId: string) {
     },
     recentActivities,
   };
+}
+
+/** Get user's department memberships (used by edit dialog) */
+export async function getUserDepartments(userId: string) {
+  return db
+    .select({
+      departmentId: departmentMembers.departmentId,
+      role: departmentMembers.role,
+    })
+    .from(departmentMembers)
+    .where(eq(departmentMembers.userId, userId));
 }

@@ -46,7 +46,8 @@
       "readStatus": "Okuma Durumu",
       "notRead": "Okunmadı",
       "revisionNo": "Rev No",
-      "publishedBy": "Yayınlayan"
+      "publishedBy": "Yayınlayan",
+      "readOnly": "Salt okunur"
     },
     "pagination": {
       "previous": "Önceki",
@@ -251,7 +252,8 @@
       "readAssignment": "Okuma Görevi",
       "reminder": "Hatırlatma",
       "escalation": "Yükseltme",
-      "documentPublished": "Belge Yayınlandı"
+      "documentPublished": "Belge Yayınlandı",
+      "documentDistributed": "Belge Dağıtıldı"
     },
     "titles": {
       "newApprovalRequest": "Yeni Onay İsteği",
@@ -272,7 +274,8 @@
       "approvalReminder": "Onay Hatırlatması",
       "escalationNotice": "Eskalasyon Bildirimi",
       "approvalEscalated": "Onay Yükseltildi",
-      "documentEscalated": "Belge Yükseltildi"
+      "documentEscalated": "Belge Yükseltildi",
+      "documentDistributed": "Belge Dağıtıldı"
     },
     "messages": {
       "newApprovalRequest": "\"{docTitle}\" ({docCode}) belgesi onayınızı beklemektedir.",
@@ -288,7 +291,8 @@
       "approvalReminder": "\"{docTitle}\" ({docCode}) belgesi {days} gündür onayınızı beklemektedir.",
       "escalationNotice": "\"{docTitle}\" ({docCode}) belgesi {approverName} tarafından {days} gündür onaylanmamıştır.",
       "approvalEscalated": "\"{docTitle}\" ({docCode}) belgesi için bekleyen onayınız {days} gün sonra yükseltilmiştir.",
-      "documentEscalated": "\"{docTitle}\" ({docCode}) belgenizin onay süreci {escalationTarget} kişisine yükseltilmiştir."
+      "documentEscalated": "\"{docTitle}\" ({docCode}) belgenizin onay süreci {escalationTarget} kişisine yükseltilmiştir.",
+      "documentDistributed": "\"{docTitle}\" ({docCode}) belgesi yayınlanmış ve bilginize sunulmuştur."
     }
   },
   "departments": {
@@ -352,6 +356,8 @@
       "emailExists": "Bu e-posta adresiyle kayıtlı bir kullanıcı zaten mevcut.",
       "passwordResetSent": "Şifre sıfırlama bağlantısı gönderildi.",
       "sendResetLink": "Şifre sıfırlama bağlantısı gönder",
+      "passwordResetNote": "Kullanıcıya şifre belirleme bağlantısı e-posta ile gönderilecektir.",
+      "multiSelect": "çoklu seçim",
       "detail": {
         "title": "Kullanıcı Detayı",
         "back": "Kullanıcılara Dön",
@@ -416,6 +422,8 @@
     "emailExists": "Bu e-posta adresiyle kayıtlı bir kullanıcı zaten mevcut.",
     "userNotFound": "Kullanıcı bulunamadı.",
     "userCreateFailed": "Kullanıcı oluşturulamadı.",
+    "managerNeedsDepartment": "Yöneticiler en az bir departmana atanmalıdır.",
+    "userNeedsOneDepartment": "Kullanıcılar tam olarak bir departmana atanmalıdır.",
     "passwordResetFailed": "Şifre sıfırlama e-postası gönderilemedi.",
     "nameRequired": "Ad alanı zorunludur.",
     "settingSaveFailed": "Ayarlar kaydedilemedi.",
