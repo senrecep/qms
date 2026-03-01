@@ -10,6 +10,8 @@ import { eq, and, lt, isNull, inArray, ne } from "drizzle-orm";
 import { enqueueEmail, enqueueNotification } from "@/lib/queue";
 import { env } from "@/lib/env";
 
+const ACTIVE_PENDING_REVISION_STATUSES = ["PENDING_APPROVAL", "PREPARER_APPROVED"] as const;
+
 export async function runApprovalEscalations() {
   const results = {
     processed: 0,
@@ -43,6 +45,7 @@ export async function runApprovalEscalations() {
       .where(
         and(
           eq(approvals.status, "PENDING"),
+          inArray(documentRevisions.status, ACTIVE_PENDING_REVISION_STATUSES),
           lt(approvals.createdAt, cutoffDate),
           isNull(approvals.escalatedAt),
         ),

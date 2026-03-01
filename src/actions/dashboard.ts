@@ -10,8 +10,10 @@ import {
   users,
   activityLogs,
 } from "@/lib/db/schema";
-import { eq, and, count, isNull, desc } from "drizzle-orm";
+import { eq, and, count, isNull, desc, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
+
+const ACTIVE_PENDING_REVISION_STATUSES = ["PENDING_APPROVAL", "PREPARER_APPROVED"] as const;
 
 export async function getDashboardStats() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -25,10 +27,12 @@ export async function getDashboardStats() {
   const [pendingApprovalsResult] = await db
     .select({ count: count() })
     .from(approvals)
+    .innerJoin(documentRevisions, eq(approvals.revisionId, documentRevisions.id))
     .where(
       and(
         eq(approvals.status, "PENDING"),
         eq(approvals.approverId, session.user.id),
+        inArray(documentRevisions.status, ACTIVE_PENDING_REVISION_STATUSES),
       ),
     );
 
@@ -74,6 +78,7 @@ export async function getPendingTasks() {
       and(
         eq(approvals.status, "PENDING"),
         eq(approvals.approverId, session.user.id),
+        inArray(documentRevisions.status, ACTIVE_PENDING_REVISION_STATUSES),
       ),
     )
     .orderBy(desc(approvals.createdAt))

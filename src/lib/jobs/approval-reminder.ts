@@ -1,8 +1,10 @@
 import { db } from "@/lib/db";
 import { approvals, users, documentRevisions, systemSettings } from "@/lib/db/schema";
-import { eq, and, lt, isNull, or } from "drizzle-orm";
+import { eq, and, lt, isNull, or, inArray } from "drizzle-orm";
 import { enqueueEmail, enqueueNotification } from "@/lib/queue";
 import { env } from "@/lib/env";
+
+const ACTIVE_PENDING_REVISION_STATUSES = ["PENDING_APPROVAL", "PREPARER_APPROVED"] as const;
 
 export async function runApprovalReminders() {
   const results = {
@@ -40,6 +42,7 @@ export async function runApprovalReminders() {
       .where(
         and(
           eq(approvals.status, "PENDING"),
+          inArray(documentRevisions.status, ACTIVE_PENDING_REVISION_STATUSES),
           lt(approvals.createdAt, cutoffDate),
           or(
             isNull(approvals.reminderSentAt),

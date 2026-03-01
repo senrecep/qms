@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import {
   approvals,
   documentRevisions,
-  documents,
   activityLogs,
   users,
 } from "@/lib/db/schema";
@@ -18,6 +17,8 @@ import { revalidatePath } from "next/cache";
 import { env } from "@/lib/env";
 import { classifyError, type ActionResult } from "@/lib/errors";
 import { publishDocument } from "@/actions/documents";
+
+const ACTIVE_PENDING_REVISION_STATUSES = ["PENDING_APPROVAL", "PREPARER_APPROVED"] as const;
 
 // --- Queries ---
 
@@ -36,6 +37,7 @@ export async function getPendingApprovals() {
           id: true,
           title: true,
           documentType: true,
+          status: true,
           createdById: true,
           createdAt: true,
           documentId: true,
@@ -60,7 +62,9 @@ export async function getPendingApprovals() {
     orderBy: (approvals, { desc }) => [desc(approvals.createdAt)],
   });
 
-  return items;
+  return items.filter((item) =>
+    ACTIVE_PENDING_REVISION_STATUSES.includes(item.revision.status),
+  );
 }
 
 export async function getCompletedApprovals() {
@@ -141,6 +145,10 @@ export async function approveDocument(approvalId: string, comment?: string): Pro
 
     if (!approval) {
       return { success: false, error: "Approval not found or already processed", errorCode: "APPROVAL_NOT_FOUND" };
+    }
+
+    if (!ACTIVE_PENDING_REVISION_STATUSES.includes(approval.revision.status)) {
+      return { success: false, error: "Approval is no longer active", errorCode: "APPROVAL_NOT_ACTIVE" };
     }
 
     // Prevent self-approval: the document creator cannot approve their own document
@@ -375,6 +383,10 @@ export async function rejectDocument(approvalId: string, comment: string): Promi
 
     if (!approval) {
       return { success: false, error: "Approval not found or already processed", errorCode: "APPROVAL_NOT_FOUND" };
+    }
+
+    if (!ACTIVE_PENDING_REVISION_STATUSES.includes(approval.revision.status)) {
+      return { success: false, error: "Approval is no longer active", errorCode: "APPROVAL_NOT_ACTIVE" };
     }
 
     const revision = approval.revision;
