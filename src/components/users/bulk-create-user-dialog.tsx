@@ -173,12 +173,12 @@ export function BulkCreateUserDialog() {
           <SheetDescription>{t("bulk.subtitle")}</SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="min-h-0 flex-1 mt-4">
-          <div className="space-y-3 px-1 pb-2">
+        <ScrollArea className="min-h-0 flex-1 mt-2 md:mt-4">
+          <div className="space-y-2 md:space-y-3 px-1 pb-2">
             {rows.map((row, idx) => (
               <div
                 key={row.id}
-                className={`flex flex-col gap-2 p-3 rounded-lg border md:grid md:grid-cols-[1fr_1.5fr_120px_1fr_40px] md:gap-3 md:items-start ${
+                className={`flex flex-col gap-1.5 p-2.5 rounded-lg border md:grid md:grid-cols-[1fr_1.5fr_120px_1fr_40px] md:gap-3 md:p-3 md:items-start ${
                   row.result
                     ? row.result.success
                       ? "border-green-200 bg-green-50"
@@ -187,10 +187,12 @@ export function BulkCreateUserDialog() {
                 }`}
               >
                 {/* Name */}
-                <div className="space-y-1">
-                  <Label className={`text-xs text-muted-foreground ${idx !== 0 ? "md:hidden" : ""}`}>
-                    {t("bulk.name")}
-                  </Label>
+                <div>
+                  {idx === 0 && (
+                    <Label className="mb-1 block text-xs text-muted-foreground">
+                      {t("bulk.name")}
+                    </Label>
+                  )}
                   <Input
                     placeholder={t("bulk.name")}
                     value={row.name}
@@ -200,10 +202,12 @@ export function BulkCreateUserDialog() {
                 </div>
 
                 {/* Email */}
-                <div className="space-y-1">
-                  <Label className={`text-xs text-muted-foreground ${idx !== 0 ? "md:hidden" : ""}`}>
-                    {t("bulk.email")}
-                  </Label>
+                <div>
+                  {idx === 0 && (
+                    <Label className="mb-1 block text-xs text-muted-foreground">
+                      {t("bulk.email")}
+                    </Label>
+                  )}
                   <Input
                     type="email"
                     placeholder={t("bulk.email")}
@@ -216,10 +220,12 @@ export function BulkCreateUserDialog() {
                 {/* Role + Department + Delete: row on mobile, grid cells on desktop */}
                 <div className="flex items-end gap-2 md:contents">
                   {/* Role */}
-                  <div className="w-[120px] shrink-0 space-y-1 md:w-auto">
-                    <Label className={`text-xs text-muted-foreground ${idx !== 0 ? "md:hidden" : ""}`}>
-                      {t("bulk.role")}
-                    </Label>
+                  <div className="w-[120px] shrink-0 md:w-auto">
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">
+                        {t("bulk.role")}
+                      </Label>
+                    )}
                     <Select
                       value={row.role}
                       onValueChange={(v) => updateRow(row.id, "role", v)}
@@ -236,10 +242,12 @@ export function BulkCreateUserDialog() {
                   </div>
 
                   {/* Department */}
-                  <div className="min-w-0 flex-1 space-y-1 md:flex-none">
-                    <Label className={`text-xs text-muted-foreground ${idx !== 0 ? "md:hidden" : ""}`}>
-                      {t("bulk.department")}
-                    </Label>
+                  <div className="min-w-0 flex-1 md:flex-none">
+                    {idx === 0 && (
+                      <Label className="mb-1 block text-xs text-muted-foreground">
+                        {t("bulk.department")}
+                      </Label>
+                    )}
                     {row.role === "USER" ? (
                       <Select
                         value={row.departmentIds[0] ?? ""}
@@ -294,8 +302,8 @@ export function BulkCreateUserDialog() {
                   </div>
 
                   {/* Actions / Status */}
-                  <div className="flex shrink-0 items-center justify-center self-end pb-1 md:self-auto md:pb-0 md:pt-1">
-                    {idx === 0 && <div className="hidden h-4 md:block" />}
+                  <div className="flex shrink-0 items-center justify-center self-end pb-0.5 md:self-auto md:pb-0 md:pt-0.5">
+                    {idx === 0 && <div className="hidden h-5 md:block" />}
                     {row.result ? (
                       row.result.success ? (
                         <CheckCircle2 className="size-5 text-green-600" />
@@ -328,7 +336,7 @@ export function BulkCreateUserDialog() {
           </div>
         </ScrollArea>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t mt-auto">
           <Button
             type="button"
             variant="outline"
