@@ -9,8 +9,8 @@
 ## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/senrecep/dms.git
-cd dms
+git clone https://github.com/senrecep/qms.git
+cd qms
 ```
 
 ## 2. Create the Environment File

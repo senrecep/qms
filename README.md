@@ -5,7 +5,7 @@
 <h1 align="center">QMS - Quality Management System</h1>
 
 <p align="center">
-  <a href="https://github.com/senrecep/dms"><img src="https://img.shields.io/badge/GitHub-senrecep%2Fdms-181717?logo=github" alt="GitHub"></a>
+  <a href="https://github.com/senrecep/qms"><img src="https://img.shields.io/badge/GitHub-senrecep%2Fqms-181717?logo=github" alt="GitHub"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
@@ -182,8 +182,8 @@ src/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/senrecep/dms.git
-cd dms
+git clone https://github.com/senrecep/qms.git
+cd qms
 
 # 2. Create environment file
 cp .env.example .env.local
